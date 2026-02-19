@@ -21,9 +21,24 @@ set -euo pipefail
 # ──────────────────────────────────────────────────────────────────────────────
 OPENCV_VERSION="4.10.0"
 NDK_VERSION="r28b"
-NDK_URL="https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip"
 ANDROID_API_LEVEL=24
-PARALLEL_JOBS=$(nproc)
+
+# Detect OS
+OS_NAME="$(uname -s)"
+case "$OS_NAME" in
+    Linux*)  HOST_OS="linux"  ;;
+    Darwin*) HOST_OS="darwin" ;;
+    *)       echo "Unsupported OS: $OS_NAME"; exit 1 ;;
+esac
+
+NDK_URL="https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-${HOST_OS}.zip"
+
+# Parallel jobs: nproc on Linux, sysctl on macOS
+if command -v nproc &>/dev/null; then
+    PARALLEL_JOBS=$(nproc)
+else
+    PARALLEL_JOBS=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -51,12 +66,20 @@ err()  { echo -e "\n\033[1;31mERR $*\033[0m" >&2; exit 1; }
 
 check_deps() {
     local missing=()
-    for cmd in cmake ninja git unzip python3 java ant; do
+    for cmd in cmake ninja git unzip python3 java; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
+    # ant is optional on macOS if using Gradle-only builds, but needed for OpenCV Java
+    command -v ant &>/dev/null || missing+=("ant")
     if [ ${#missing[@]} -gt 0 ]; then
-        err "Missing required tools: ${missing[*]}
+        if [ "$HOST_OS" = "darwin" ]; then
+            err "Missing required tools: ${missing[*]}
+  brew install cmake ninja git python ant
+  # JDK: brew install openjdk@17"
+        else
+            err "Missing required tools: ${missing[*]}
   sudo apt-get install -y cmake ninja-build git unzip python3 default-jdk ant"
+        fi
     fi
 }
 
@@ -244,7 +267,7 @@ if [ -d "$JAVA_GEN" ]; then
 
     # Also check for java sources in the android build output
     find "$FIRST_BUILD" -path "*/src/org/opencv" -type d | head -1 | while read d; do
-        cp -rn "$(dirname "$d")/org" "$JAVA_SRC_DIR/" 2>/dev/null || true
+        cp -r "$(dirname "$d")/org" "$JAVA_SRC_DIR/" 2>/dev/null || true
     done
 
     JAVA_COUNT=$(find "$JAVA_SRC_DIR" -name "*.java" 2>/dev/null | wc -l)
@@ -255,20 +278,34 @@ fi
 
 # ── Verify 16KB alignment ──
 log "Verifying 16KB page size alignment..."
-ALIGNMENT_OK=true
-for so in $(find "$JNILIBS_DIR" -name "*.so"); do
-    ALIGN=$(readelf -l "$so" 2>/dev/null | grep -i "LOAD" | head -1 | awk '{print $NF}' | sed 's/0x//')
-    if [ -n "$ALIGN" ]; then
-        ALIGN_DEC=$((16#$ALIGN))
-        if [ "$ALIGN_DEC" -ge 16384 ]; then
-            echo "  ✓ $(basename "$so") ($(dirname "$so" | xargs basename)): ${ALIGN_DEC} bytes"
-        else
-            warn "  ✗ $(basename "$so") ($(dirname "$so" | xargs basename)): ${ALIGN_DEC} bytes — NOT 16KB aligned!"
-            ALIGNMENT_OK=false
+
+# Find a readelf binary — prefer NDK's llvm-readelf (works on macOS + Linux)
+READELF=""
+if command -v readelf &>/dev/null; then
+    READELF="readelf"
+elif [ -d "$NDK_DIR" ]; then
+    READELF=$(find "$NDK_DIR" -name "llvm-readelf" -type f | head -1)
+fi
+
+if [ -n "$READELF" ]; then
+    ALIGNMENT_OK=true
+    for so in $(find "$JNILIBS_DIR" -name "*.so"); do
+        ALIGN=$("$READELF" -l "$so" 2>/dev/null | grep -i "LOAD" | head -1 | awk '{print $NF}' | sed 's/0x//')
+        if [ -n "$ALIGN" ]; then
+            ALIGN_DEC=$((16#$ALIGN))
+            if [ "$ALIGN_DEC" -ge 16384 ]; then
+                echo "  ✓ $(basename "$so") ($(dirname "$so" | xargs basename)): ${ALIGN_DEC} bytes"
+            else
+                warn "  ✗ $(basename "$so") ($(dirname "$so" | xargs basename)): ${ALIGN_DEC} bytes — NOT 16KB aligned!"
+                ALIGNMENT_OK=false
+            fi
         fi
-    fi
-done
-$ALIGNMENT_OK && log "All .so files are 16KB aligned ✓" || warn "Some .so files are NOT 16KB aligned!"
+    done
+    $ALIGNMENT_OK && log "All .so files are 16KB aligned ✓" || warn "Some .so files are NOT 16KB aligned!"
+else
+    warn "readelf/llvm-readelf not found — skipping 16KB alignment verification."
+    warn "You can verify manually with: llvm-readelf -l <file>.so | grep LOAD"
+fi
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Done
