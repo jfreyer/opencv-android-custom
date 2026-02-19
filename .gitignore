@@ -1,0 +1,18 @@
+# Build intermediates
+scripts/work/
+*.zip
+build/
+.gradle/
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Do NOT ignore these — they are the built artifacts that JitPack needs:
+# opencv-lib/src/main/jniLibs/
+# opencv-lib/src/main/java/

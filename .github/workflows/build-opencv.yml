@@ -1,0 +1,143 @@
+name: Build OpenCV Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      opencv_version:
+        description: 'OpenCV version'
+        required: false
+        default: '4.10.0'
+      create_release:
+        description: 'Create a GitHub release after build'
+        required: false
+        type: boolean
+        default: false
+      release_tag:
+        description: 'Release tag (e.g. 4.10.0-1)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    strategy:
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86, x86_64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build python3 default-jdk ant
+
+      - name: Setup Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'ndk;28.0.12674087'
+
+      - name: Build OpenCV for ${{ matrix.abi }}
+        run: |
+          export ANDROID_NDK=$ANDROID_HOME/ndk/28.0.12674087
+          chmod +x scripts/build_opencv_android.sh
+          scripts/build_opencv_android.sh ${{ matrix.abi }}
+
+      - name: Upload ABI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencv-${{ matrix.abi }}
+          path: |
+            opencv-lib/src/main/jniLibs/${{ matrix.abi }}/
+          retention-days: 7
+
+      - name: Upload Java sources (arm64-v8a only)
+        if: matrix.abi == 'arm64-v8a'
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencv-java-sources
+          path: |
+            opencv-lib/src/main/java/
+          retention-days: 7
+
+  commit-artifacts:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clean previous artifacts
+        run: |
+          rm -rf opencv-lib/src/main/jniLibs/*/
+          rm -rf opencv-lib/src/main/java/org/
+
+      - name: Download all ABI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: opencv-*
+          merge-multiple: false
+
+      - name: Place artifacts in correct locations
+        run: |
+          # Move ABI libs
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            mkdir -p opencv-lib/src/main/jniLibs/${abi}
+            if [ -d "opencv-${abi}" ]; then
+              cp -r opencv-${abi}/* opencv-lib/src/main/jniLibs/${abi}/
+            fi
+          done
+
+          # Move Java sources
+          if [ -d "opencv-java-sources" ]; then
+            mkdir -p opencv-lib/src/main/java
+            cp -r opencv-java-sources/* opencv-lib/src/main/java/
+          fi
+
+          # Show what we have
+          echo "=== Native libs ==="
+          find opencv-lib/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
+          echo "=== Java sources ==="
+          find opencv-lib/src/main/java -name "*.java" | wc -l
+          echo " Java files"
+
+      - name: Commit built artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add opencv-lib/src/main/jniLibs/ opencv-lib/src/main/java/
+          git commit -m "build: OpenCV ${{ inputs.opencv_version }} native libs + Java bindings [ci skip]" || echo "No changes to commit"
+          git push
+
+      - name: Create release tag
+        if: inputs.create_release && inputs.release_tag != ''
+        run: |
+          git tag "${{ inputs.release_tag }}"
+          git push origin "${{ inputs.release_tag }}"
+
+      - name: Create GitHub Release
+        if: inputs.create_release && inputs.release_tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: "OpenCV ${{ inputs.opencv_version }} Android"
+          body: |
+            OpenCV ${{ inputs.opencv_version }} for Android with patched Java bindings.
+
+            **Includes:**
+            - Full stitching detail pipeline (setters exposed to Java)
+            - SIFT feature detection
+            - imread/imwrite (JPEG, PNG, WebP, TIFF)
+            - 16KB page size alignment
+            - ABIs: arm64-v8a, armeabi-v7a, x86, x86_64
+
+            **Usage:**
+            ```gradle
+            implementation 'com.github.<your-username>:opencv-android:${{ inputs.release_tag }}'
+            ```
+          draft: false
+          prerelease: false

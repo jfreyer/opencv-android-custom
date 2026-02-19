@@ -1,0 +1,75 @@
+plugins {
+    id 'com.android.library'
+    id 'maven-publish'
+}
+
+android {
+    namespace 'org.opencv'
+    compileSdk 35
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 35
+
+        consumerProguardFiles 'consumer-rules.pro'
+
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    // The native .so files are in src/main/jniLibs/<abi>/
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+        }
+    }
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+
+                groupId = 'com.github.forstify'  // JitPack will override with com.github.<user>
+                artifactId = 'opencv-android'
+                version = project.findProperty('VERSION_NAME') ?: '4.10.0'
+
+                pom {
+                    name = 'OpenCV Android'
+                    description = 'OpenCV 4.10.0 for Android with patched Java bindings for full stitching detail pipeline, SIFT, and 16KB page alignment.'
+                    url = 'https://github.com/forstify/opencv-android'
+
+                    licenses {
+                        license {
+                            name = 'Apache License 2.0'
+                            url = 'https://opensource.org/licenses/Apache-2.0'
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    // No external dependencies — OpenCV is fully self-contained
+}
