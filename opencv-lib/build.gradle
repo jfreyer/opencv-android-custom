@@ -29,10 +29,15 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
 
-    // The native .so files are in src/main/jniLibs/<abi>/
     sourceSets {
         main {
             jniLibs.srcDirs = ['src/main/jniLibs']
+            java {
+                // GraphCutSeamFinder requires opencv_contrib (not in this build)
+                exclude 'org/opencv/stitching/GraphCutSeamFinder.java'
+                // PyRotationWarper has duplicate warpPointBackward method from const/non-const overloads
+                exclude 'org/opencv/stitching/PyRotationWarper.java'
+            }
         }
     }
 
@@ -49,14 +54,14 @@ afterEvaluate {
             release(MavenPublication) {
                 from components.release
 
-                groupId = 'com.github.forstify'  // JitPack will override with com.github.<user>
+                groupId = 'com.github.jfreyer'
                 artifactId = 'opencv-android'
                 version = project.findProperty('VERSION_NAME') ?: '4.10.0'
 
                 pom {
                     name = 'OpenCV Android'
                     description = 'OpenCV 4.10.0 for Android with patched Java bindings for full stitching detail pipeline, SIFT, and 16KB page alignment.'
-                    url = 'https://github.com/forstify/opencv-android'
+                    url = 'https://github.com/jfreyer/opencv-android'
 
                     licenses {
                         license {
