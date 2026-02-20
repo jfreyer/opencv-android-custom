@@ -43,6 +43,7 @@ android {
                 exclude 'org/opencv/android/JavaCameraView.java'
                 exclude 'org/opencv/android/JavaCamera2View.java'
                 exclude 'org/opencv/android/NativeCameraView.java'
+                exclude 'org/opencv/android/CameraActivity.java'
             }
         }
     }
