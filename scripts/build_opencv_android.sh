@@ -127,12 +127,13 @@ log "Applying source patches..."
 
 STITCH_HPP="$OPENCV_SRC/modules/stitching/include/opencv2/stitching.hpp"
 WARPERS_HPP="$OPENCV_SRC/modules/stitching/include/opencv2/stitching/warpers.hpp"
+SEAM_FINDERS_HPP="$OPENCV_SRC/modules/stitching/include/opencv2/stitching/detail/seam_finders.hpp"
 STITCHING_CMAKE="$OPENCV_SRC/modules/stitching/CMakeLists.txt"
 ANDROID_SDK_CMAKE="$OPENCV_SRC/modules/java/android_sdk/CMakeLists.txt"
 GEN_JAVA="$OPENCV_SRC/modules/java/generator/gen_java.py"
 
 # Restore originals if they exist, then re-patch (idempotent)
-for f in "$STITCH_HPP" "$WARPERS_HPP" "$STITCHING_CMAKE" "$ANDROID_SDK_CMAKE" "$GEN_JAVA"; do
+for f in "$STITCH_HPP" "$WARPERS_HPP" "$SEAM_FINDERS_HPP" "$STITCHING_CMAKE" "$ANDROID_SDK_CMAKE" "$GEN_JAVA"; do
     [ -f "${f}.orig" ] || cp "$f" "${f}.orig"
     cp "${f}.orig" "$f"
 done
@@ -184,6 +185,47 @@ done
 
 # ── 4c: Tell CMake to wrap stitching module for Java ──
 sed_i 's/WRAP python)/WRAP python java)/' "$STITCHING_CMAKE"
+
+# ── 4f: Add CV_WRAP constructors to VoronoiSeamFinder and SphericalWarper ──
+SEAM_FINDERS_HPP="$OPENCV_SRC/modules/stitching/include/opencv2/stitching/detail/seam_finders.hpp"
+[ -f "${SEAM_FINDERS_HPP}.orig" ] || cp "$SEAM_FINDERS_HPP" "${SEAM_FINDERS_HPP}.orig"
+cp "${SEAM_FINDERS_HPP}.orig" "$SEAM_FINDERS_HPP"
+
+python3 - "$SEAM_FINDERS_HPP" "$WARPERS_HPP" <<'PYEOF'
+import sys
+seam_path, warpers_path = sys.argv[1], sys.argv[2]
+
+# VoronoiSeamFinder — insert CV_WRAP constructor after opening brace of class body
+c = open(seam_path).read()
+c = c.replace(
+    'class CV_EXPORTS_W VoronoiSeamFinder : public PairwiseSeamFinder\n{',
+    'class CV_EXPORTS_W VoronoiSeamFinder : public PairwiseSeamFinder\n{\npublic:\n    CV_WRAP VoronoiSeamFinder() {}'
+)
+# If no opening brace on next line, just inject after class declaration
+if 'CV_WRAP VoronoiSeamFinder' not in c:
+    c = c.replace(
+        'class CV_EXPORTS_W VoronoiSeamFinder : public PairwiseSeamFinder',
+        'class CV_EXPORTS_W VoronoiSeamFinder : public PairwiseSeamFinder\n{\npublic:\n    CV_WRAP VoronoiSeamFinder() {}'
+    )
+open(seam_path, 'w').write(c)
+print('  Patched VoronoiSeamFinder constructor')
+
+# SphericalWarper — class body already exists, just add CV_WRAP constructor
+c = open(warpers_path).read()
+if 'CV_WRAP SphericalWarper()' not in c:
+    c = c.replace(
+        'class CV_EXPORTS_W SphericalWarper: public WarperCreator\n{',
+        'class CV_EXPORTS_W SphericalWarper: public WarperCreator\n{\npublic:\n    CV_WRAP SphericalWarper() {}'
+    )
+    if 'CV_WRAP SphericalWarper()' not in c:
+        # Try without newline before brace
+        c = c.replace(
+            'class CV_EXPORTS_W SphericalWarper: public WarperCreator\n{\npublic:',
+            'class CV_EXPORTS_W SphericalWarper: public WarperCreator\n{\npublic:\n    CV_WRAP SphericalWarper() {}'
+        )
+open(warpers_path, 'w').write(c)
+print('  Patched SphericalWarper constructor')
+PYEOF
 
 # ── 4d: Fix android_sdk CMakeLists.txt broken /opencv paths ──
 python3 - "$ANDROID_SDK_CMAKE" <<'PYEOF'
@@ -338,7 +380,6 @@ path = sys.argv[1]
 content = open(path).read()
 
 # Fix 1: generated typedefs use detail_X instead of detail::X
-# e.g. typedef Ptr<detail_FeaturesMatcher> -> typedef Ptr<cv::detail::FeaturesMatcher>
 for cls in ['FeaturesMatcher', 'BundleAdjusterBase', 'Estimator',
             'ExposureCompensator', 'SeamFinder', 'Blender']:
     content = content.replace(
@@ -346,7 +387,34 @@ for cls in ['FeaturesMatcher', 'BundleAdjusterBase', 'Estimator',
         f'typedef Ptr<cv::detail::{cls}> Ptr_detail_{cls}'
     )
 
-# Fix 2: comment out broken JNI call sites (non-const ref params, abstract operator)
+# Fix 2: Add create(int mode) JNI function if not already present
+if 'Java_org_opencv_stitching_Stitcher_create_11' not in content:
+    create_jni = '''
+JNIEXPORT jlong JNICALL Java_org_opencv_stitching_Stitcher_create_11
+  (JNIEnv* env, jclass , jint mode)
+{
+    
+    jlong _retval_ = 0;
+    try {
+        typedef Ptr<cv::Stitcher> Ptr_Stitcher;
+        Ptr_Stitcher _ptr_ = cv::Stitcher::create( (cv::Stitcher::Mode)mode );
+        _retval_ = (jlong)(new Ptr_Stitcher(_ptr_));
+    } catch(const std::exception &e) {
+        throwJavaException(env, &e, "cv::Stitcher::create");
+    } catch (...) {
+        throwJavaException(env, 0, "cv::Stitcher::create");
+    }
+    return _retval_;
+}
+'''
+    # Insert after the existing create_0 function
+    content = re.sub(
+        r'(JNIEXPORT jlong JNICALL Java_org_opencv_stitching_Stitcher_create_10.*?^})',
+        r'\1\n' + create_jni,
+        content, flags=re.DOTALL | re.MULTILINE
+    )
+
+# Fix 3: comment out broken JNI call sites
 lines = content.splitlines(keepends=True)
 out = []
 for line in lines:
@@ -362,7 +430,7 @@ for line in lines:
     out.append(line)
 
 open(path, 'w').writelines(out)
-print('  stitching.inl.hpp patched (typedef namespaces fixed + broken JNI calls commented out)')
+print('  stitching.inl.hpp patched (typedef namespaces + create(mode) + broken JNI calls)')
 PYEOF
     else
         warn "stitching.inl.hpp not found after gen_opencv_java_source — build may fail"
@@ -415,15 +483,28 @@ if [ -d "$JAVA_GEN" ]; then
 import sys
 path = sys.argv[1]
 c = open(path).read()
+
+# Patch 1: Add ORIG_RESOL constant
 if 'ORIG_RESOL' not in c:
     c = c.replace(
         '            ERR_CAMERA_PARAMS_ADJUST_FAIL = 3;',
         '            ERR_CAMERA_PARAMS_ADJUST_FAIL = 3;\n\n\n    // C++: static double cv::Stitcher::ORIG_RESOL\n    /** Corresponds to ORIG_RESOL (-1.0) — preserve original resolution */\n    public static final double ORIG_RESOL = -1.0;'
     )
-    open(path, 'w').write(c)
     print('  Patched ORIG_RESOL into Stitcher.java')
-else:
-    print('  ORIG_RESOL already present in Stitcher.java')
+
+# Patch 2: Add create(int mode) overload calling the existing create_11 JNI function
+if 'create(int mode)' not in c:
+    c = c.replace(
+        '    public static Stitcher create() {\n        return Stitcher.__fromPtr__(create_0());\n    }',
+        '    public static Stitcher create() {\n        return Stitcher.__fromPtr__(create_0());\n    }\n\n    public static Stitcher create(int mode) {\n        return Stitcher.__fromPtr__(create_11(mode));\n    }'
+    )
+    c = c.replace(
+        '    private static native long create_0();',
+        '    private static native long create_0();\n    private static native long create_11(int mode);'
+    )
+    print('  Patched create(int mode) into Stitcher.java')
+
+open(path, 'w').write(c)
 PYEOF
     fi
 
