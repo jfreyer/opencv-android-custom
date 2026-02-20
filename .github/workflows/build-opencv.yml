@@ -1,21 +1,16 @@
 name: Build OpenCV Android
 
 on:
+  push:
+    paths:
+      - 'version.env'
   workflow_dispatch:
     inputs:
-      opencv_version:
-        description: 'OpenCV version'
-        required: false
-        default: '4.10.0'
       create_release:
         description: 'Create a GitHub release after build'
         required: false
         type: boolean
-        default: false
-      release_tag:
-        description: 'Release tag (e.g. 4.10.0-1)'
-        required: false
-        default: ''
+        default: true
 
 jobs:
   build:
@@ -28,6 +23,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Load version
+        run: |
+          source version.env
+          echo "OPENCV_VERSION=$OPENCV_VERSION" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
 
       - name: Install build dependencies
         run: |
@@ -69,6 +70,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Load version
+        run: |
+          source version.env
+          echo "OPENCV_VERSION=$OPENCV_VERSION" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
 
       - name: Clean previous artifacts
         run: |
@@ -130,23 +137,28 @@ jobs:
           git add opencv-lib/src/main/jniLibs/ opencv-lib/src/main/java/
           git diff --cached --quiet \
             && echo "No changes to commit" \
-            || git commit -m "build: OpenCV ${{ inputs.opencv_version }} native libs + Java bindings [ci skip]"
+            || git commit -m "build: OpenCV ${{ env.OPENCV_VERSION }} native libs + Java bindings [ci skip]"
           git push
 
-      - name: Create release tag
-        if: inputs.create_release && inputs.release_tag != ''
+      - name: Check tag does not already exist
         run: |
-          git tag "${{ inputs.release_tag }}"
-          git push origin "${{ inputs.release_tag }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ env.RELEASE_TAG }}$"; then
+            echo "❌ Tag ${{ env.RELEASE_TAG }} already exists — did you forget to bump the version in version.env?"
+            exit 1
+          fi
+
+      - name: Create release tag
+        run: |
+          git tag "${{ env.RELEASE_TAG }}"
+          git push origin "${{ env.RELEASE_TAG }}"
 
       - name: Create GitHub Release
-        if: inputs.create_release && inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag }}
-          name: "OpenCV ${{ inputs.opencv_version }} Android"
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "OpenCV ${{ env.OPENCV_VERSION }} Android"
           body: |
-            OpenCV ${{ inputs.opencv_version }} for Android with patched Java bindings.
+            OpenCV ${{ env.OPENCV_VERSION }} for Android with patched Java bindings.
 
             **Includes:**
             - Full stitching detail pipeline (setters exposed to Java)
@@ -157,7 +169,7 @@ jobs:
 
             **Usage via JitPack:**
             ```gradle
-            implementation 'com.github.jfreyer:opencv-android:${{ inputs.release_tag }}'
+            implementation 'com.github.jfreyer:opencv-android-custom:${{ env.RELEASE_TAG }}'
             ```
           draft: false
           prerelease: false
