@@ -13,7 +13,25 @@ on:
         default: true
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load version
+        run: |
+          source version.env
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
+
+      - name: Check tag does not already exist
+        run: |
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ env.RELEASE_TAG }}$"; then
+            echo "❌ Tag ${{ env.RELEASE_TAG }} already exists — did you forget to bump the version in version.env?"
+            exit 1
+          fi
+
   build:
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 120
 
@@ -139,13 +157,6 @@ jobs:
             && echo "No changes to commit" \
             || git commit -m "build: OpenCV ${{ env.OPENCV_VERSION }} native libs + Java bindings [ci skip]"
           git push
-
-      - name: Check tag does not already exist
-        run: |
-          if git ls-remote --tags origin | grep -q "refs/tags/${{ env.RELEASE_TAG }}$"; then
-            echo "❌ Tag ${{ env.RELEASE_TAG }} already exists — did you forget to bump the version in version.env?"
-            exit 1
-          fi
 
       - name: Create release tag
         run: |
