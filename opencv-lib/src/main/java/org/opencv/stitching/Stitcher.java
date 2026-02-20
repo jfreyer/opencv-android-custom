@@ -85,6 +85,10 @@ public class Stitcher {
         return Stitcher.__fromPtr__(create_0());
     }
 
+    public static Stitcher create(int mode) {
+        return Stitcher.__fromPtr__(create_11(mode));
+    }
+
 
     //
     // C++:  double cv::Stitcher::registrationResol()
@@ -469,6 +473,7 @@ public class Stitcher {
 
     // C++: static Ptr_Stitcher cv::Stitcher::create(Mode mode = Stitcher::PANORAMA)
     private static native long create_0();
+    private static native long create_11(int mode);
 
     // C++:  double cv::Stitcher::registrationResol()
     private static native double registrationResol_0(long nativeObj);

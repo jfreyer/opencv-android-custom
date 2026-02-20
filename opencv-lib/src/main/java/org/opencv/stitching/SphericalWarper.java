@@ -16,12 +16,24 @@ public class SphericalWarper extends WarperCreator {
     // internal usage only
     public static SphericalWarper __fromPtr__(long addr) { return new SphericalWarper(addr); }
 
+    //
+    // C++:   cv::SphericalWarper::SphericalWarper()
+    //
+
+    public SphericalWarper() {
+        super(SphericalWarper_0());
+    }
+
+
     @Override
     protected void finalize() throws Throwable {
         delete(nativeObj);
     }
 
 
+
+    // C++:   cv::SphericalWarper::SphericalWarper()
+    private static native long SphericalWarper_0();
 
     // native support for java finalize()
     private static native void delete(long nativeObj);

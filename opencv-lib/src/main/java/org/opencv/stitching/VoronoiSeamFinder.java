@@ -17,6 +17,15 @@ public class VoronoiSeamFinder extends PairwiseSeamFinder {
     public static VoronoiSeamFinder __fromPtr__(long addr) { return new VoronoiSeamFinder(addr); }
 
     //
+    // C++:   cv::detail::VoronoiSeamFinder::VoronoiSeamFinder()
+    //
+
+    public VoronoiSeamFinder() {
+        super(VoronoiSeamFinder_0());
+    }
+
+
+    //
     // C++:  void cv::detail::VoronoiSeamFinder::find(vector_UMat src, vector_Point corners, vector_UMat& masks)
     //
 
@@ -29,6 +38,9 @@ public class VoronoiSeamFinder extends PairwiseSeamFinder {
     }
 
 
+
+    // C++:   cv::detail::VoronoiSeamFinder::VoronoiSeamFinder()
+    private static native long VoronoiSeamFinder_0();
 
     // native support for java finalize()
     private static native void delete(long nativeObj);
