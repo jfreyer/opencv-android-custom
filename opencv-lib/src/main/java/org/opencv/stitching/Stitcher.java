@@ -3,9 +3,19 @@
 //
 package org.opencv.stitching;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.opencv.core.Mat;
 import org.opencv.features2d.Feature2D;
+import org.opencv.stitching.Blender;
+import org.opencv.stitching.BundleAdjusterBase;
+import org.opencv.stitching.Estimator;
+import org.opencv.stitching.ExposureCompensator;
+import org.opencv.stitching.FeaturesMatcher;
+import org.opencv.stitching.SeamFinder;
 import org.opencv.stitching.Stitcher;
 import org.opencv.stitching.WarperCreator;
+import org.opencv.utils.Converters;
 
 // C++: class Stitcher
 /**
@@ -53,6 +63,11 @@ public class Stitcher {
             ERR_NEED_MORE_IMGS = 1,
             ERR_HOMOGRAPHY_EST_FAIL = 2,
             ERR_CAMERA_PARAMS_ADJUST_FAIL = 3;
+
+
+    // C++: static double cv::Stitcher::ORIG_RESOL
+    /** Corresponds to ORIG_RESOL (-1.0) — preserve original resolution */
+    public static final double ORIG_RESOL = -1.0;
 
 
     //
@@ -219,42 +234,54 @@ public class Stitcher {
     // C++:  Ptr_detail_FeaturesMatcher cv::Stitcher::featuresMatcher()
     //
 
-    // Return type 'Ptr_detail_FeaturesMatcher' is not supported, skipping the function
+    public FeaturesMatcher featuresMatcher() {
+        return FeaturesMatcher.__fromPtr__(featuresMatcher_0(nativeObj));
+    }
 
 
     //
     // C++:  void cv::Stitcher::setFeaturesMatcher(Ptr_detail_FeaturesMatcher features_matcher)
     //
 
-    // Unknown type 'Ptr_detail_FeaturesMatcher' (I), skipping the function
+    public void setFeaturesMatcher(FeaturesMatcher features_matcher) {
+        setFeaturesMatcher_0(nativeObj, features_matcher.getNativeObjAddr());
+    }
 
 
     //
     // C++:  Ptr_detail_BundleAdjusterBase cv::Stitcher::bundleAdjuster()
     //
 
-    // Return type 'Ptr_detail_BundleAdjusterBase' is not supported, skipping the function
+    public BundleAdjusterBase bundleAdjuster() {
+        return BundleAdjusterBase.__fromPtr__(bundleAdjuster_0(nativeObj));
+    }
 
 
     //
     // C++:  void cv::Stitcher::setBundleAdjuster(Ptr_detail_BundleAdjusterBase bundle_adjuster)
     //
 
-    // Unknown type 'Ptr_detail_BundleAdjusterBase' (I), skipping the function
+    public void setBundleAdjuster(BundleAdjusterBase bundle_adjuster) {
+        setBundleAdjuster_0(nativeObj, bundle_adjuster.getNativeObjAddr());
+    }
 
 
     //
     // C++:  Ptr_detail_Estimator cv::Stitcher::estimator()
     //
 
-    // Return type 'Ptr_detail_Estimator' is not supported, skipping the function
+    public Estimator estimator() {
+        return Estimator.__fromPtr__(estimator_0(nativeObj));
+    }
 
 
     //
     // C++:  void cv::Stitcher::setEstimator(Ptr_detail_Estimator estimator)
     //
 
-    // Unknown type 'Ptr_detail_Estimator' (I), skipping the function
+    public void setEstimator(Estimator estimator) {
+        setEstimator_0(nativeObj, estimator.getNativeObjAddr());
+    }
 
 
     //
@@ -279,77 +306,149 @@ public class Stitcher {
     // C++:  Ptr_detail_ExposureCompensator cv::Stitcher::exposureCompensator()
     //
 
-    // Return type 'Ptr_detail_ExposureCompensator' is not supported, skipping the function
+    public ExposureCompensator exposureCompensator() {
+        return ExposureCompensator.__fromPtr__(exposureCompensator_0(nativeObj));
+    }
 
 
     //
     // C++:  void cv::Stitcher::setExposureCompensator(Ptr_detail_ExposureCompensator exposure_comp)
     //
 
-    // Unknown type 'Ptr_detail_ExposureCompensator' (I), skipping the function
+    public void setExposureCompensator(ExposureCompensator exposure_comp) {
+        setExposureCompensator_0(nativeObj, exposure_comp.getNativeObjAddr());
+    }
 
 
     //
     // C++:  Ptr_detail_SeamFinder cv::Stitcher::seamFinder()
     //
 
-    // Return type 'Ptr_detail_SeamFinder' is not supported, skipping the function
+    public SeamFinder seamFinder() {
+        return SeamFinder.__fromPtr__(seamFinder_0(nativeObj));
+    }
 
 
     //
     // C++:  void cv::Stitcher::setSeamFinder(Ptr_detail_SeamFinder seam_finder)
     //
 
-    // Unknown type 'Ptr_detail_SeamFinder' (I), skipping the function
+    public void setSeamFinder(SeamFinder seam_finder) {
+        setSeamFinder_0(nativeObj, seam_finder.getNativeObjAddr());
+    }
 
 
     //
     // C++:  Ptr_detail_Blender cv::Stitcher::blender()
     //
 
-    // Return type 'Ptr_detail_Blender' is not supported, skipping the function
+    public Blender blender() {
+        return Blender.__fromPtr__(blender_0(nativeObj));
+    }
 
 
     //
     // C++:  void cv::Stitcher::setBlender(Ptr_detail_Blender b)
     //
 
-    // Unknown type 'Ptr_detail_Blender' (I), skipping the function
+    public void setBlender(Blender b) {
+        setBlender_0(nativeObj, b.getNativeObjAddr());
+    }
 
 
     //
     // C++:  Status cv::Stitcher::estimateTransform(vector_Mat images, vector_Mat masks = vector_Mat())
     //
 
-    // Return type 'Status' is not supported, skipping the function
+    /**
+     * These functions try to match the given images and to estimate rotations of each camera.
+     *
+     *     <b>Note:</b> Use the functions only if you're aware of the stitching pipeline, otherwise use
+     *     Stitcher::stitch.
+     *
+     *     @param images Input images.
+     *     @param masks Masks for each input image specifying where to look for keypoints (optional).
+     *     @return Status code.
+     */
+    public int estimateTransform(List<Mat> images, List<Mat> masks) {
+        Mat images_mat = Converters.vector_Mat_to_Mat(images);
+        Mat masks_mat = Converters.vector_Mat_to_Mat(masks);
+        return estimateTransform_0(nativeObj, images_mat.nativeObj, masks_mat.nativeObj);
+    }
+
+    /**
+     * These functions try to match the given images and to estimate rotations of each camera.
+     *
+     *     <b>Note:</b> Use the functions only if you're aware of the stitching pipeline, otherwise use
+     *     Stitcher::stitch.
+     *
+     *     @param images Input images.
+     *     @return Status code.
+     */
+    public int estimateTransform(List<Mat> images) {
+        Mat images_mat = Converters.vector_Mat_to_Mat(images);
+        return estimateTransform_1(nativeObj, images_mat.nativeObj);
+    }
 
 
     //
     // C++:  Status cv::Stitcher::composePanorama(Mat& pano)
     //
 
-    // Return type 'Status' is not supported, skipping the function
+    public int composePanorama(Mat pano) {
+        return composePanorama_0(nativeObj, pano.nativeObj);
+    }
 
 
     //
     // C++:  Status cv::Stitcher::composePanorama(vector_Mat images, Mat& pano)
     //
 
-    // Return type 'Status' is not supported, skipping the function
+    /**
+     * These functions try to compose the given images (or images stored internally from the other function
+     *     calls) into the final pano under the assumption that the image transformations were estimated
+     *     before.
+     *
+     *     <b>Note:</b> Use the functions only if you're aware of the stitching pipeline, otherwise use
+     *     Stitcher::stitch.
+     *
+     *     @param images Input images.
+     *     @param pano Final pano.
+     *     @return Status code.
+     */
+    public int composePanorama(List<Mat> images, Mat pano) {
+        Mat images_mat = Converters.vector_Mat_to_Mat(images);
+        return composePanorama_1(nativeObj, images_mat.nativeObj, pano.nativeObj);
+    }
 
 
     //
     // C++:  Status cv::Stitcher::stitch(vector_Mat images, Mat& pano)
     //
 
-    // Return type 'Status' is not supported, skipping the function
+    public int stitch(List<Mat> images, Mat pano) {
+        Mat images_mat = Converters.vector_Mat_to_Mat(images);
+        return stitch_0(nativeObj, images_mat.nativeObj, pano.nativeObj);
+    }
 
 
     //
     // C++:  Status cv::Stitcher::stitch(vector_Mat images, vector_Mat masks, Mat& pano)
     //
 
-    // Return type 'Status' is not supported, skipping the function
+    /**
+     * These functions try to stitch the given images.
+     *
+     *     @param images Input images.
+     *     @param masks Masks for each input image specifying where to look for keypoints (optional).
+     *     @param pano Final pano.
+     *     @return Status code.
+     */
+    public int stitch(List<Mat> images, List<Mat> masks, Mat pano) {
+        Mat images_mat = Converters.vector_Mat_to_Mat(images);
+        Mat masks_mat = Converters.vector_Mat_to_Mat(masks);
+        return stitch_1(nativeObj, images_mat.nativeObj, masks_mat.nativeObj, pano.nativeObj);
+    }
 
 
     //
@@ -419,11 +518,63 @@ public class Stitcher {
     // C++:  void cv::Stitcher::setFeaturesFinder(Ptr_Feature2D features_finder)
     private static native void setFeaturesFinder_0(long nativeObj, long features_finder_nativeObj);
 
+    // C++:  Ptr_detail_FeaturesMatcher cv::Stitcher::featuresMatcher()
+    private static native long featuresMatcher_0(long nativeObj);
+
+    // C++:  void cv::Stitcher::setFeaturesMatcher(Ptr_detail_FeaturesMatcher features_matcher)
+    private static native void setFeaturesMatcher_0(long nativeObj, long features_matcher_nativeObj);
+
+    // C++:  Ptr_detail_BundleAdjusterBase cv::Stitcher::bundleAdjuster()
+    private static native long bundleAdjuster_0(long nativeObj);
+
+    // C++:  void cv::Stitcher::setBundleAdjuster(Ptr_detail_BundleAdjusterBase bundle_adjuster)
+    private static native void setBundleAdjuster_0(long nativeObj, long bundle_adjuster_nativeObj);
+
+    // C++:  Ptr_detail_Estimator cv::Stitcher::estimator()
+    private static native long estimator_0(long nativeObj);
+
+    // C++:  void cv::Stitcher::setEstimator(Ptr_detail_Estimator estimator)
+    private static native void setEstimator_0(long nativeObj, long estimator_nativeObj);
+
     // C++:  Ptr_WarperCreator cv::Stitcher::warper()
     private static native long warper_0(long nativeObj);
 
     // C++:  void cv::Stitcher::setWarper(Ptr_WarperCreator creator)
     private static native void setWarper_0(long nativeObj, long creator_nativeObj);
+
+    // C++:  Ptr_detail_ExposureCompensator cv::Stitcher::exposureCompensator()
+    private static native long exposureCompensator_0(long nativeObj);
+
+    // C++:  void cv::Stitcher::setExposureCompensator(Ptr_detail_ExposureCompensator exposure_comp)
+    private static native void setExposureCompensator_0(long nativeObj, long exposure_comp_nativeObj);
+
+    // C++:  Ptr_detail_SeamFinder cv::Stitcher::seamFinder()
+    private static native long seamFinder_0(long nativeObj);
+
+    // C++:  void cv::Stitcher::setSeamFinder(Ptr_detail_SeamFinder seam_finder)
+    private static native void setSeamFinder_0(long nativeObj, long seam_finder_nativeObj);
+
+    // C++:  Ptr_detail_Blender cv::Stitcher::blender()
+    private static native long blender_0(long nativeObj);
+
+    // C++:  void cv::Stitcher::setBlender(Ptr_detail_Blender b)
+    private static native void setBlender_0(long nativeObj, long b_nativeObj);
+
+    // C++:  Status cv::Stitcher::estimateTransform(vector_Mat images, vector_Mat masks = vector_Mat())
+    private static native int estimateTransform_0(long nativeObj, long images_mat_nativeObj, long masks_mat_nativeObj);
+    private static native int estimateTransform_1(long nativeObj, long images_mat_nativeObj);
+
+    // C++:  Status cv::Stitcher::composePanorama(Mat& pano)
+    private static native int composePanorama_0(long nativeObj, long pano_nativeObj);
+
+    // C++:  Status cv::Stitcher::composePanorama(vector_Mat images, Mat& pano)
+    private static native int composePanorama_1(long nativeObj, long images_mat_nativeObj, long pano_nativeObj);
+
+    // C++:  Status cv::Stitcher::stitch(vector_Mat images, Mat& pano)
+    private static native int stitch_0(long nativeObj, long images_mat_nativeObj, long pano_nativeObj);
+
+    // C++:  Status cv::Stitcher::stitch(vector_Mat images, vector_Mat masks, Mat& pano)
+    private static native int stitch_1(long nativeObj, long images_mat_nativeObj, long masks_mat_nativeObj, long pano_nativeObj);
 
     // C++:  double cv::Stitcher::workScale()
     private static native double workScale_0(long nativeObj);
