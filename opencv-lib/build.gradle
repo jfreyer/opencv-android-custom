@@ -37,6 +37,12 @@ android {
                 exclude 'org/opencv/stitching/GraphCutSeamFinder.java'
                 // PyRotationWarper has duplicate warpPointBackward method from const/non-const overloads
                 exclude 'org/opencv/stitching/PyRotationWarper.java'
+                // Camera view classes require BuildConfig and R.styleable which are
+                // not available in the library module build context
+                exclude 'org/opencv/android/CameraBridgeViewBase.java'
+                exclude 'org/opencv/android/JavaCameraView.java'
+                exclude 'org/opencv/android/JavaCamera2View.java'
+                exclude 'org/opencv/android/NativeCameraView.java'
             }
         }
     }
