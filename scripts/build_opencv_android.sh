@@ -451,7 +451,33 @@ PYEOF
     find "$INSTALL_DIR" -name "libopencv_java4*.so" -exec cp {} "$ABI_OUT/" \;
 
     CPP_SHARED=$(find "${NDK_DIR}" -name "libc++_shared.so" -path "*/${ABI}/*" | head -1)
-    [ -n "$CPP_SHARED" ] && cp "$CPP_SHARED" "$ABI_OUT/"
+    # Fallback: map ABI to triple target name used in sysroot
+    if [ -z "$CPP_SHARED" ]; then
+        case "$ABI" in
+            arm64-v8a)   CPP_TRIPLE="aarch64-linux-android"  ;;
+            armeabi-v7a) CPP_TRIPLE="arm-linux-androideabi"  ;;
+            x86)         CPP_TRIPLE="i686-linux-android"     ;;
+            x86_64)      CPP_TRIPLE="x86_64-linux-android"   ;;
+        esac
+        CPP_SHARED="${NDK_DIR}/toolchains/llvm/prebuilt/${HOST_OS}-x86_64/sysroot/usr/lib/${CPP_TRIPLE}/libc++_shared.so"
+    fi
+    [ -f "$CPP_SHARED" ] && cp "$CPP_SHARED" "$ABI_OUT/" || warn "libc++_shared.so not found for ${ABI}"
+
+    # libomp.so — required by OpenCV built with -fopenmp=libomp
+    # Map Android ABI names to clang arch names
+    case "$ABI" in
+        arm64-v8a)   OMP_ARCH="aarch64" ;;
+        armeabi-v7a) OMP_ARCH="arm"     ;;
+        x86)         OMP_ARCH="i386"    ;;
+        x86_64)      OMP_ARCH="x86_64"  ;;
+    esac
+    OMP_SO="${NDK_DIR}/toolchains/llvm/prebuilt/${HOST_OS}-x86_64/lib/clang/19/lib/linux/${OMP_ARCH}/libomp.so"
+    if [ -f "$OMP_SO" ]; then
+        cp "$OMP_SO" "$ABI_OUT/"
+        log "Copied libomp.so for ${ABI}"
+    else
+        warn "libomp.so not found for ${ABI} at ${OMP_SO}"
+    fi
 
     log "✓ ${ABI}: $(ls "$ABI_OUT")"
 done

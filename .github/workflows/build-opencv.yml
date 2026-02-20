@@ -34,23 +34,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build python3 default-jdk ant
 
-      - name: Setup Android NDK
+      - name: Setup Android SDK + NDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'ndk;28.0.12674087'
 
       - name: Build OpenCV for ${{ matrix.abi }}
+        env:
+          ANDROID_NDK: ${{ env.ANDROID_HOME }}/ndk/28.0.12674087
         run: |
-          export ANDROID_NDK=$ANDROID_HOME/ndk/28.0.12674087
           chmod +x scripts/build_opencv_android.sh
           scripts/build_opencv_android.sh ${{ matrix.abi }}
 
-      - name: Upload ABI artifacts
+      - name: Upload native lib for ${{ matrix.abi }}
         uses: actions/upload-artifact@v4
         with:
           name: opencv-${{ matrix.abi }}
-          path: |
-            opencv-lib/src/main/jniLibs/${{ matrix.abi }}/
+          path: opencv-lib/src/main/jniLibs/${{ matrix.abi }}/
           retention-days: 7
 
       - name: Upload Java sources (arm64-v8a only)
@@ -58,8 +58,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: opencv-java-sources
-          path: |
-            opencv-lib/src/main/java/
+          path: opencv-lib/src/main/java/
           retention-days: 7
 
   commit-artifacts:
@@ -73,44 +72,65 @@ jobs:
 
       - name: Clean previous artifacts
         run: |
-          rm -rf opencv-lib/src/main/jniLibs/*/
+          rm -rf opencv-lib/src/main/jniLibs/
           rm -rf opencv-lib/src/main/java/org/
+          mkdir -p opencv-lib/src/main/jniLibs
+          mkdir -p opencv-lib/src/main/java
 
-      - name: Download all ABI artifacts
+      - name: Download arm64-v8a
         uses: actions/download-artifact@v4
         with:
-          pattern: opencv-*
-          merge-multiple: false
+          name: opencv-arm64-v8a
+          path: opencv-lib/src/main/jniLibs/arm64-v8a/
 
-      - name: Place artifacts in correct locations
+      - name: Download armeabi-v7a
+        uses: actions/download-artifact@v4
+        with:
+          name: opencv-armeabi-v7a
+          path: opencv-lib/src/main/jniLibs/armeabi-v7a/
+
+      - name: Download x86
+        uses: actions/download-artifact@v4
+        with:
+          name: opencv-x86
+          path: opencv-lib/src/main/jniLibs/x86/
+
+      - name: Download x86_64
+        uses: actions/download-artifact@v4
+        with:
+          name: opencv-x86_64
+          path: opencv-lib/src/main/jniLibs/x86_64/
+
+      - name: Download Java sources
+        uses: actions/download-artifact@v4
+        with:
+          name: opencv-java-sources
+          path: opencv-lib/src/main/java/
+
+      - name: Verify artifacts
         run: |
-          # Move ABI libs
-          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
-            mkdir -p opencv-lib/src/main/jniLibs/${abi}
-            if [ -d "opencv-${abi}" ]; then
-              cp -r opencv-${abi}/* opencv-lib/src/main/jniLibs/${abi}/
-            fi
-          done
-
-          # Move Java sources
-          if [ -d "opencv-java-sources" ]; then
-            mkdir -p opencv-lib/src/main/java
-            cp -r opencv-java-sources/* opencv-lib/src/main/java/
-          fi
-
-          # Show what we have
           echo "=== Native libs ==="
           find opencv-lib/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
+          echo ""
           echo "=== Java sources ==="
           find opencv-lib/src/main/java -name "*.java" | wc -l
           echo " Java files"
+          echo ""
+          echo "=== Key stitching classes ==="
+          for cls in Stitcher SphericalWarper MultiBandBlender BestOf2NearestMatcher VoronoiSeamFinder; do
+            find opencv-lib/src/main/java -name "${cls}.java" | grep -q . \
+              && echo "  ✓ ${cls}.java" \
+              || echo "  ✗ ${cls}.java MISSING"
+          done
 
       - name: Commit built artifacts
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add opencv-lib/src/main/jniLibs/ opencv-lib/src/main/java/
-          git commit -m "build: OpenCV ${{ inputs.opencv_version }} native libs + Java bindings [ci skip]" || echo "No changes to commit"
+          git diff --cached --quiet \
+            && echo "No changes to commit" \
+            || git commit -m "build: OpenCV ${{ inputs.opencv_version }} native libs + Java bindings [ci skip]"
           git push
 
       - name: Create release tag
@@ -132,12 +152,12 @@ jobs:
             - Full stitching detail pipeline (setters exposed to Java)
             - SIFT feature detection
             - imread/imwrite (JPEG, PNG, WebP, TIFF)
-            - 16KB page size alignment
+            - 16KB page size alignment (Android 15/16 compliant)
             - ABIs: arm64-v8a, armeabi-v7a, x86, x86_64
 
-            **Usage:**
+            **Usage via JitPack:**
             ```gradle
-            implementation 'com.github.<your-username>:opencv-android:${{ inputs.release_tag }}'
+            implementation 'com.github.jfreyer:opencv-android:${{ inputs.release_tag }}'
             ```
           draft: false
           prerelease: false
