@@ -184,3 +184,10 @@ jobs:
             ```
           draft: false
           prerelease: false
+
+      - name: Trigger JitPack build
+        run: |
+          echo "Triggering JitPack build for ${{ env.RELEASE_TAG }}..."
+          curl -s -o /dev/null -w "HTTP %{http_code}\n" \
+            "https://jitpack.io/com/github/jfreyer/opencv-android-custom/${{ env.RELEASE_TAG }}/opencv-android-custom-${{ env.RELEASE_TAG }}.pom"
+          echo "Check status: https://jitpack.io/#jfreyer/opencv-android-custom/${{ env.RELEASE_TAG }}"
