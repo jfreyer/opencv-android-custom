@@ -6,6 +6,7 @@
 #   - PATCHED Java bindings for full stitching detail pipeline
 #   - 16KB page size alignment (Android 15/16 compliance)
 #   - SIFT, imread/imwrite, full stitching pipeline
+#   - Optional debug symbols for crash symbolication
 #
 # Supported ABIs: arm64-v8a, armeabi-v7a, x86, x86_64
 #
@@ -13,6 +14,7 @@
 #   ./build_opencv_android.sh                      # all 4 ABIs
 #   ./build_opencv_android.sh arm64-v8a             # single ABI
 #   ANDROID_NDK=/path/to/ndk ./build_opencv_android.sh  # custom NDK
+#   DEBUG_SYMBOLS=1 ./build_opencv_android.sh       # include debug symbols
 #
 set -euo pipefail
 
@@ -22,6 +24,10 @@ set -euo pipefail
 OPENCV_VERSION="4.10.0"
 NDK_VERSION="r28b"
 ANDROID_API_LEVEL=24
+
+# Debug symbols: set DEBUG_SYMBOLS=1 to build with debug info and keep
+# unstripped libs alongside the normal output.
+DEBUG_SYMBOLS="${DEBUG_SYMBOLS:-0}"
 
 OS_NAME="$(uname -s)"
 case "$OS_NAME" in
@@ -47,11 +53,21 @@ NDK_DIR="${WORK_DIR}/android-ndk-${NDK_VERSION}"
 LIB_MODULE="${PROJECT_ROOT}/opencv-lib"
 JNILIBS_DIR="${LIB_MODULE}/src/main/jniLibs"
 JAVA_SRC_DIR="${LIB_MODULE}/src/main/java"
+DEBUG_SYMBOLS_DIR="${LIB_MODULE}/debug-symbols"
 
 if [ $# -gt 0 ]; then
     ABIS=("$@")
 else
     ABIS=("arm64-v8a" "armeabi-v7a" "x86" "x86_64")
+fi
+
+# Resolve build type based on debug flag
+if [ "$DEBUG_SYMBOLS" = "1" ]; then
+    CMAKE_BUILD_TYPE="RelWithDebInfo"
+    log_build_type="RelWithDebInfo (debug symbols enabled)"
+else
+    CMAKE_BUILD_TYPE="Release"
+    log_build_type="Release"
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -92,6 +108,8 @@ check_deps() {
 log "Checking host dependencies..."
 check_deps
 mkdir -p "$WORK_DIR"
+
+log "Build type: ${log_build_type}"
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Step 2: Android NDK
@@ -311,13 +329,34 @@ echo "  gen_java.py patched:    $(grep -c 'Ptr_detail_' "$GEN_JAVA")"
 # ──────────────────────────────────────────────────────────────────────────────
 OPENCV_MODULES="core,imgproc,imgcodecs,features2d,flann,calib3d,stitching,java"
 
+# Prepare debug symbols output directory
+if [ "$DEBUG_SYMBOLS" = "1" ]; then
+    rm -rf "$DEBUG_SYMBOLS_DIR"
+    mkdir -p "$DEBUG_SYMBOLS_DIR"
+fi
+
 for ABI in "${ABIS[@]}"; do
-    log "Building OpenCV for ABI: ${ABI}"
+    log "Building OpenCV for ABI: ${ABI} (${CMAKE_BUILD_TYPE})"
 
     BUILD_DIR="${WORK_DIR}/build-${ABI}"
     INSTALL_DIR="${WORK_DIR}/install-${ABI}"
     rm -rf "$BUILD_DIR"
     mkdir -p "$BUILD_DIR"
+
+    # ── Debug symbols: extra CMake flags ──
+    DEBUG_CMAKE_FLAGS=()
+    if [ "$DEBUG_SYMBOLS" = "1" ]; then
+        DEBUG_CMAKE_FLAGS+=(
+            # Keep debug info in the .so (don't strip during install)
+            -DCMAKE_INSTALL_DO_STRIP=OFF
+            # Ensure -g is present even in RelWithDebInfo (NDK toolchain
+            # sometimes drops it); -O2 is still applied by RelWithDebInfo.
+            -DCMAKE_C_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG"
+            -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O2 -g -DNDEBUG"
+            # Tell the NDK toolchain not to strip libs
+            -DANDROID_NO_STRIP=ON
+        )
+    fi
 
     # ── Stage 1: CMake configure ──
     cmake -S "$OPENCV_SRC" -B "$BUILD_DIR" -G Ninja \
@@ -325,7 +364,7 @@ for ABI in "${ABIS[@]}"; do
         -DANDROID_ABI="${ABI}" \
         -DANDROID_NATIVE_API_LEVEL="${ANDROID_API_LEVEL}" \
         -DANDROID_STL=c++_shared \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}" \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         \
         -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON \
@@ -359,6 +398,8 @@ for ABI in "${ABIS[@]}"; do
         -DBUILD_WEBP=ON \
         -DBUILD_TIFF=ON \
         -DBUILD_OPENJPEG=ON \
+        \
+        "${DEBUG_CMAKE_FLAGS[@]}" \
         \
         2>&1 | tee "${BUILD_DIR}/cmake_configure.log"
 
@@ -438,10 +479,10 @@ PYEOF
 
     # ── Stage 4: Full build ──
     log "Compiling for ${ABI}..."
-    cmake --build "$BUILD_DIR" --config Release -j "$PARALLEL_JOBS" \
+    cmake --build "$BUILD_DIR" --config "${CMAKE_BUILD_TYPE}" -j "$PARALLEL_JOBS" \
         2>&1 | tee "${BUILD_DIR}/build.log"
 
-    cmake --install "$BUILD_DIR" --config Release \
+    cmake --install "$BUILD_DIR" --config "${CMAKE_BUILD_TYPE}" \
         2>&1 | tee "${BUILD_DIR}/install.log"
 
     # ── Copy artifacts ──
@@ -449,6 +490,30 @@ PYEOF
     mkdir -p "$ABI_OUT"
 
     find "$INSTALL_DIR" -name "libopencv_java4*.so" -exec cp {} "$ABI_OUT/" \;
+
+    # ── Debug symbols: save unstripped copies, then strip the jniLibs copy ──
+    if [ "$DEBUG_SYMBOLS" = "1" ]; then
+        DEBUG_ABI_DIR="${DEBUG_SYMBOLS_DIR}/${ABI}"
+        mkdir -p "$DEBUG_ABI_DIR"
+
+        # Copy the unstripped .so files (with full DWARF debug info)
+        for so in "$ABI_OUT"/*.so; do
+            cp "$so" "$DEBUG_ABI_DIR/"
+        done
+        log "Saved unstripped libs to ${DEBUG_ABI_DIR}/"
+
+        # Resolve the correct llvm-strip from the NDK
+        LLVM_STRIP=$(find "${NDK_DIR}/toolchains/llvm/prebuilt" -name "llvm-strip" -type f | head -1)
+        if [ -n "$LLVM_STRIP" ]; then
+            # Strip the copies that go into the APK (keep debug syms only in debug-symbols/)
+            for so in "$ABI_OUT"/*.so; do
+                "$LLVM_STRIP" --strip-debug "$so"
+            done
+            log "Stripped jniLibs .so files (debug info preserved in debug-symbols/)"
+        else
+            warn "llvm-strip not found in NDK — jniLibs will contain debug info (larger APK)"
+        fi
+    fi
 
     CPP_SHARED=$(find "${NDK_DIR}" -name "libc++_shared.so" -path "*/${ABI}/*" | head -1)
     # Fallback: map ABI to triple target name used in sysroot
@@ -477,6 +542,13 @@ PYEOF
         log "Copied libomp.so for ${ABI}"
     else
         warn "libomp.so not found for ${ABI} at ${OMP_SO}"
+    fi
+
+    # Copy runtime libs to debug-symbols too (for complete symbolication)
+    if [ "$DEBUG_SYMBOLS" = "1" ]; then
+        for runtime_so in "$ABI_OUT"/libc++_shared.so "$ABI_OUT"/libomp.so; do
+            [ -f "$runtime_so" ] && cp "$runtime_so" "${DEBUG_SYMBOLS_DIR}/${ABI}/"
+        done
     fi
 
     log "✓ ${ABI}: $(ls "$ABI_OUT")"
@@ -607,5 +679,13 @@ echo ""
 echo "Artifacts placed in:"
 echo "  Native libs:  ${JNILIBS_DIR}/"
 echo "  Java sources: ${JAVA_SRC_DIR}/"
+if [ "$DEBUG_SYMBOLS" = "1" ]; then
+    SYMBOLS_SIZE=$(du -sh "$DEBUG_SYMBOLS_DIR" 2>/dev/null | cut -f1)
+    echo "  Debug symbols: ${DEBUG_SYMBOLS_DIR}/ (${SYMBOLS_SIZE})"
+    echo ""
+    echo "To symbolicate native crashes:"
+    echo "  ndk-stack -sym ${DEBUG_SYMBOLS_DIR}/<abi> -dump tombstone.txt"
+    echo "  # Or upload to Firebase Crashlytics / Bugsnag / Sentry"
+fi
 echo ""
 echo "Next: commit and tag a release, JitPack will build the AAR automatically."
