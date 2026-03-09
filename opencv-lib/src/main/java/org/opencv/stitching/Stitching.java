@@ -34,88 +34,31 @@ public class Stitching {
 
 
     //
-    // C++:  void cv::detail::focalsFromHomography(Mat H, double f0, double f1, bool f0_ok, bool f1_ok)
+    // C++:  bool cv::detail::Estimator::operator ()(vector_ImageFeatures features, vector_MatchesInfo pairwise_matches, vector_CameraParams& cameras)
     //
 
-    /**
-     * Tries to estimate focal lengths from the given homography under the assumption that the camera
-     * undergoes rotations around its centre only.
-     *
-     * @param H Homography.
-     * @param f0 Estimated focal length along X axis.
-     * @param f1 Estimated focal length along Y axis.
-     * @param f0_ok True, if f0 was estimated successfully, false otherwise.
-     * @param f1_ok True, if f1 was estimated successfully, false otherwise.
-     *
-     * See "Construction of Panoramic Image Mosaics with Global and Local Alignment"
-     * by Heung-Yeung Shum and Richard Szeliski.
-     */
-    public static void focalsFromHomography(Mat H, double f0, double f1, boolean f0_ok, boolean f1_ok) {
-        focalsFromHomography_0(H.nativeObj, f0, f1, f0_ok, f1_ok);
-    }
+    // Unknown type 'vector_ImageFeatures' (I), skipping the function
 
 
     //
-    // C++:  bool cv::detail::calibrateRotatingCamera(vector_Mat Hs, Mat& K)
+    // C++:  void cv::detail::waveCorrect(vector_Mat& rmats, WaveCorrectKind kind)
     //
 
-    /**
-     * Estimates focal lengths for each given camera.
-     *
-     * @param Hs automatically generated
-     * @param K automatically generated
-     * @return automatically generated
-     */
-    public static boolean calibrateRotatingCamera(List<Mat> Hs, Mat K) {
-        Mat Hs_mat = Converters.vector_Mat_to_Mat(Hs);
-        return calibrateRotatingCamera_0(Hs_mat.nativeObj, K.nativeObj);
-    }
+    // Unknown type 'WaveCorrectKind' (I), skipping the function
 
 
     //
-    // C++:  void cv::detail::normalizeUsingWeightMap(Mat weight, Mat& src)
+    // C++:  String cv::detail::matchesGraphAsString(vector_String paths, vector_MatchesInfo pairwise_matches, float conf_threshold)
     //
 
-    public static void normalizeUsingWeightMap(Mat weight, Mat src) {
-        normalizeUsingWeightMap_0(weight.nativeObj, src.nativeObj);
-    }
+    // Unknown type 'vector_MatchesInfo' (I), skipping the function
 
 
     //
-    // C++:  void cv::detail::createWeightMap(Mat mask, float sharpness, Mat& weight)
+    // C++:  vector_int cv::detail::leaveBiggestComponent(vector_ImageFeatures features, vector_MatchesInfo pairwise_matches, float conf_threshold)
     //
 
-    public static void createWeightMap(Mat mask, float sharpness, Mat weight) {
-        createWeightMap_0(mask.nativeObj, sharpness, weight.nativeObj);
-    }
-
-
-    //
-    // C++:  void cv::detail::createLaplacePyr(Mat img, int num_levels, vector_UMat& pyr)
-    //
-
-    // Unknown type 'vector_UMat' (IO), skipping the function
-
-
-    //
-    // C++:  void cv::detail::createLaplacePyrGpu(Mat img, int num_levels, vector_UMat& pyr)
-    //
-
-    // Unknown type 'vector_UMat' (IO), skipping the function
-
-
-    //
-    // C++:  void cv::detail::restoreImageFromLaplacePyr(vector_UMat& pyr)
-    //
-
-    // Unknown type 'vector_UMat' (IO), skipping the function
-
-
-    //
-    // C++:  void cv::detail::restoreImageFromLaplacePyrGpu(vector_UMat& pyr)
-    //
-
-    // Unknown type 'vector_UMat' (IO), skipping the function
+    // Unknown type 'vector_ImageFeatures' (I), skipping the function
 
 
     //
@@ -178,6 +121,91 @@ public class Stitching {
 
 
     //
+    // C++:  void cv::detail::normalizeUsingWeightMap(Mat weight, Mat& src)
+    //
+
+    public static void normalizeUsingWeightMap(Mat weight, Mat src) {
+        normalizeUsingWeightMap_0(weight.nativeObj, src.nativeObj);
+    }
+
+
+    //
+    // C++:  void cv::detail::createWeightMap(Mat mask, float sharpness, Mat& weight)
+    //
+
+    public static void createWeightMap(Mat mask, float sharpness, Mat weight) {
+        createWeightMap_0(mask.nativeObj, sharpness, weight.nativeObj);
+    }
+
+
+    //
+    // C++:  void cv::detail::createLaplacePyr(Mat img, int num_levels, vector_UMat& pyr)
+    //
+
+    // Unknown type 'vector_UMat' (IO), skipping the function
+
+
+    //
+    // C++:  void cv::detail::createLaplacePyrGpu(Mat img, int num_levels, vector_UMat& pyr)
+    //
+
+    // Unknown type 'vector_UMat' (IO), skipping the function
+
+
+    //
+    // C++:  void cv::detail::restoreImageFromLaplacePyr(vector_UMat& pyr)
+    //
+
+    // Unknown type 'vector_UMat' (IO), skipping the function
+
+
+    //
+    // C++:  void cv::detail::restoreImageFromLaplacePyrGpu(vector_UMat& pyr)
+    //
+
+    // Unknown type 'vector_UMat' (IO), skipping the function
+
+
+    //
+    // C++:  void cv::detail::focalsFromHomography(Mat H, double f0, double f1, bool f0_ok, bool f1_ok)
+    //
+
+    /**
+     * Tries to estimate focal lengths from the given homography under the assumption that the camera
+     * undergoes rotations around its centre only.
+     *
+     * @param H Homography.
+     * @param f0 Estimated focal length along X axis.
+     * @param f1 Estimated focal length along Y axis.
+     * @param f0_ok True, if f0 was estimated successfully, false otherwise.
+     * @param f1_ok True, if f1 was estimated successfully, false otherwise.
+     *
+     * See "Construction of Panoramic Image Mosaics with Global and Local Alignment"
+     * by Heung-Yeung Shum and Richard Szeliski.
+     */
+    public static void focalsFromHomography(Mat H, double f0, double f1, boolean f0_ok, boolean f1_ok) {
+        focalsFromHomography_0(H.nativeObj, f0, f1, f0_ok, f1_ok);
+    }
+
+
+    //
+    // C++:  bool cv::detail::calibrateRotatingCamera(vector_Mat Hs, Mat& K)
+    //
+
+    /**
+     * Estimates focal lengths for each given camera.
+     *
+     * @param Hs automatically generated
+     * @param K automatically generated
+     * @return automatically generated
+     */
+    public static boolean calibrateRotatingCamera(List<Mat> Hs, Mat K) {
+        Mat Hs_mat = Converters.vector_Mat_to_Mat(Hs);
+        return calibrateRotatingCamera_0(Hs_mat.nativeObj, K.nativeObj);
+    }
+
+
+    //
     // C++:  void cv::detail::computeImageFeatures(Ptr_Feature2D featuresFinder, vector_Mat images, vector_ImageFeatures& features, vector_Mat masks = vector_Mat())
     //
 
@@ -234,47 +262,7 @@ public class Stitching {
     // Unknown type 'vector_ImageFeatures' (I), skipping the function
 
 
-    //
-    // C++:  bool cv::detail::Estimator::operator ()(vector_ImageFeatures features, vector_MatchesInfo pairwise_matches, vector_CameraParams& cameras)
-    //
 
-    // Unknown type 'vector_ImageFeatures' (I), skipping the function
-
-
-    //
-    // C++:  void cv::detail::waveCorrect(vector_Mat& rmats, WaveCorrectKind kind)
-    //
-
-    // Unknown type 'WaveCorrectKind' (I), skipping the function
-
-
-    //
-    // C++:  String cv::detail::matchesGraphAsString(vector_String paths, vector_MatchesInfo pairwise_matches, float conf_threshold)
-    //
-
-    // Unknown type 'vector_MatchesInfo' (I), skipping the function
-
-
-    //
-    // C++:  vector_int cv::detail::leaveBiggestComponent(vector_ImageFeatures features, vector_MatchesInfo pairwise_matches, float conf_threshold)
-    //
-
-    // Unknown type 'vector_ImageFeatures' (I), skipping the function
-
-
-
-
-    // C++:  void cv::detail::focalsFromHomography(Mat H, double f0, double f1, bool f0_ok, bool f1_ok)
-    private static native void focalsFromHomography_0(long H_nativeObj, double f0, double f1, boolean f0_ok, boolean f1_ok);
-
-    // C++:  bool cv::detail::calibrateRotatingCamera(vector_Mat Hs, Mat& K)
-    private static native boolean calibrateRotatingCamera_0(long Hs_mat_nativeObj, long K_nativeObj);
-
-    // C++:  void cv::detail::normalizeUsingWeightMap(Mat weight, Mat& src)
-    private static native void normalizeUsingWeightMap_0(long weight_nativeObj, long src_nativeObj);
-
-    // C++:  void cv::detail::createWeightMap(Mat mask, float sharpness, Mat& weight)
-    private static native void createWeightMap_0(long mask_nativeObj, float sharpness, long weight_nativeObj);
 
     // C++:  bool cv::detail::overlapRoi(Point tl1, Point tl2, Size sz1, Size sz2, Rect roi)
     private static native boolean overlapRoi_0(double tl1_x, double tl1_y, double tl2_x, double tl2_y, double sz1_width, double sz1_height, double sz2_width, double sz2_height, int roi_x, int roi_y, int roi_width, int roi_height);
@@ -287,6 +275,18 @@ public class Stitching {
 
     // C++:  int cv::detail::stitchingLogLevel()
     private static native int stitchingLogLevel_0();
+
+    // C++:  void cv::detail::normalizeUsingWeightMap(Mat weight, Mat& src)
+    private static native void normalizeUsingWeightMap_0(long weight_nativeObj, long src_nativeObj);
+
+    // C++:  void cv::detail::createWeightMap(Mat mask, float sharpness, Mat& weight)
+    private static native void createWeightMap_0(long mask_nativeObj, float sharpness, long weight_nativeObj);
+
+    // C++:  void cv::detail::focalsFromHomography(Mat H, double f0, double f1, bool f0_ok, bool f1_ok)
+    private static native void focalsFromHomography_0(long H_nativeObj, double f0, double f1, boolean f0_ok, boolean f1_ok);
+
+    // C++:  bool cv::detail::calibrateRotatingCamera(vector_Mat Hs, Mat& K)
+    private static native boolean calibrateRotatingCamera_0(long Hs_mat_nativeObj, long K_nativeObj);
 
     // C++:  void cv::detail::computeImageFeatures(Ptr_Feature2D featuresFinder, Mat image, ImageFeatures& features, Mat mask = Mat())
     private static native void computeImageFeatures2_0(long featuresFinder_nativeObj, long image_nativeObj, long features_nativeObj, long mask_nativeObj);
